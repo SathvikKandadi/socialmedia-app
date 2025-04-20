@@ -341,9 +341,14 @@ export default function Notifications() {
               {item.post.content}
             </Text>
           )}
-          <Text style={styles.timestamp}>
-            {new Date(item.created_at).toLocaleDateString()}
-          </Text>
+          <View style={styles.notificationFooter}>
+            <Text style={styles.timestamp}>
+              {new Date(item.created_at).toLocaleDateString()}
+            </Text>
+            {!item.read && (
+              <View style={styles.unreadDot} />
+            )}
+          </View>
         </View>
       </View>
     </TouchableOpacity>
@@ -352,7 +357,7 @@ export default function Notifications() {
   if (loading && !refreshing) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#306998" />
+        <ActivityIndicator size="large" color="#5561F5" />
         <Text style={styles.loadingText}>Loading notifications...</Text>
       </View>
     );
@@ -365,7 +370,7 @@ export default function Notifications() {
           style={styles.backButton}
           onPress={() => router.back()}
         >
-          <Ionicons name="arrow-back" size={24} color="#333" />
+          <Ionicons name="arrow-back" size={24} color="#5561F5" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Notifications</Text>
         <TouchableOpacity 
@@ -380,7 +385,7 @@ export default function Notifications() {
             Alert.alert('Notification Fix', 'Forced notification badge reset');
           }}
         >
-          <Ionicons name="refresh" size={24} color="#333" />
+          <Ionicons name="refresh" size={24} color="#5561F5" />
         </TouchableOpacity>
       </View>
 
@@ -393,12 +398,17 @@ export default function Notifications() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={handleRefresh}
-            colors={['#306998']}
+            colors={['#5561F5']}
+            tintColor="#5561F5"
           />
         }
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>No notifications</Text>
+            <Ionicons name="notifications-off-outline" size={48} color="#A0A3BD" style={{ marginBottom: 12 }} />
+            <Text style={styles.emptyText}>No notifications yet</Text>
+            <Text style={[styles.emptyText, { fontSize: 14, marginTop: 8 }]}>
+              When you have new notifications, they'll appear here
+            </Text>
           </View>
         }
       />
@@ -409,7 +419,7 @@ export default function Notifications() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#F8F9FD',
   },
   loadingContainer: {
     flex: 1,
@@ -419,59 +429,75 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 10,
     fontSize: 16,
-    color: '#666',
+    color: '#6E7191',
+    fontWeight: '500',
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 15,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    padding: 16,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 0,
+    shadowColor: '#8A64F7',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 5,
   },
   backButton: {
-    padding: 5,
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: '#F3F4FC',
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#1A1D3F',
   },
   refreshButton: {
-    padding: 5,
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: '#F3F4FC',
   },
   notificationsList: {
-    padding: 10,
+    padding: 12,
   },
   notificationContainer: {
-    backgroundColor: '#fff',
-    borderRadius: 10,
-    padding: 15,
-    marginBottom: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 16,
+    marginBottom: 12,
+    shadowColor: '#8A64F7',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
   },
   unreadNotification: {
-    backgroundColor: '#f0f7ff',
+    backgroundColor: '#F3F6FF',
+    borderLeftWidth: 4,
+    borderLeftColor: '#5561F5',
   },
   userInfo: {
     flexDirection: 'row',
   },
   avatarContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#306998',
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: '#5561F5',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 15,
+    shadowColor: '#8A64F7',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 3,
   },
   avatarText: {
-    color: '#fff',
+    color: '#FFFFFF',
     fontSize: 16,
     fontWeight: 'bold',
   },
@@ -483,32 +509,51 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   username: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#1A1D3F',
     marginRight: 5,
   },
   actionText: {
-    fontSize: 14,
-    color: '#666',
+    fontSize: 15,
+    color: '#6E7191',
   },
   postPreview: {
     fontSize: 14,
-    color: '#666',
-    marginTop: 5,
-    marginBottom: 5,
+    color: '#6E7191',
+    marginTop: 8,
+    marginBottom: 8,
+    padding: 8,
+    backgroundColor: '#F8F9FD',
+    borderRadius: 10,
   },
   timestamp: {
     fontSize: 12,
-    color: '#666',
-    marginTop: 5,
+    color: '#A0A3BD',
+    marginTop: 6,
   },
   emptyContainer: {
-    padding: 20,
+    padding: 30,
     alignItems: 'center',
+    justifyContent: 'center',
+    height: 200,
   },
   emptyText: {
     fontSize: 16,
-    color: '#666',
+    color: '#6E7191',
+    textAlign: 'center',
+    fontWeight: '500',
+  },
+  notificationFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  unreadDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#5561F5',
+    marginLeft: 8,
   },
 }); 

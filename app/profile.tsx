@@ -225,32 +225,32 @@ export default function Profile() {
   };
 
   const renderPost = ({ item }: { item: Post }) => (
-    <View style={styles.postContainer}>
+    <View style={styles.postItem}>
       <Text style={styles.postContent}>{item.content}</Text>
       <Text style={styles.timestamp}>
         {new Date(item.created_at).toLocaleDateString()}
       </Text>
-      <View style={styles.postActions}>
-        <View style={styles.actionButton}>
+      <View style={styles.postFooter}>
+        <View style={styles.postAction}>
           <Ionicons 
             name={item.is_liked ? "heart" : "heart-outline"} 
             size={24} 
             color={item.is_liked ? "#e74c3c" : "#333"} 
           />
-          <Text style={styles.actionText}>{item.likes_count}</Text>
+          <Text style={styles.postActionText}>{item.likes_count}</Text>
         </View>
-        <View style={styles.actionButton}>
+        <View style={styles.postAction}>
           <Ionicons name="chatbubble-outline" size={24} color="#333" />
-          <Text style={styles.actionText}>{item.comments_count}</Text>
+          <Text style={styles.postActionText}>{item.comments_count}</Text>
         </View>
         <TouchableOpacity 
-          style={styles.actionButton}
+          style={styles.postAction}
           onPress={() => handleEditPost(item)}
         >
           <Ionicons name="create-outline" size={24} color="#333" />
         </TouchableOpacity>
         <TouchableOpacity 
-          style={styles.actionButton}
+          style={styles.postAction}
           onPress={() => handleDeletePost(item.id)}
         >
           <Ionicons name="trash-outline" size={24} color="#e74c3c" />
@@ -271,51 +271,49 @@ export default function Profile() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Profile</Text>
         <TouchableOpacity 
-          style={styles.logoutButton}
+          style={styles.backButton}
           onPress={handleLogout}
         >
           <Ionicons name="log-out" size={24} color="#333" />
         </TouchableOpacity>
+        <Text style={styles.headerTitle}>Profile</Text>
       </View>
 
       <View style={styles.profileHeader}>
         <View style={styles.avatarContainer}>
           <Text style={styles.avatarText}>
-            {profile?.username.charAt(0).toUpperCase()}
+            {profile?.username ? profile.username[0].toUpperCase() : 'U'}
           </Text>
         </View>
-        <View style={styles.profileInfo}>
-          <Text style={styles.username}>{profile?.username}</Text>
-          <Text style={styles.fullName}>{profile?.full_name}</Text>
-          <Text style={styles.bio}>{profile?.bio}</Text>
-        </View>
+        <Text style={styles.username}>{profile?.username}</Text>
+        <Text style={styles.fullName}>{profile?.full_name}</Text>
+        {profile?.bio && <Text style={styles.bio}>{profile.bio}</Text>}
         <TouchableOpacity 
-          style={styles.editButton}
+          style={styles.actionButton}
           onPress={handleEditProfile}
         >
-          <Text style={styles.editButtonText}>Edit Profile</Text>
+          <Text style={styles.actionButtonText}>Edit Profile</Text>
         </TouchableOpacity>
       </View>
 
       <View style={styles.statsContainer}>
         <View style={styles.statItem}>
-          <Text style={styles.statNumber}>{posts.length}</Text>
+          <Text style={styles.statValue}>{posts.length}</Text>
           <Text style={styles.statLabel}>Posts</Text>
         </View>
         <View style={styles.statItem}>
-          <Text style={styles.statNumber}>{profile?.followers_count}</Text>
+          <Text style={styles.statValue}>{profile?.followers_count}</Text>
           <Text style={styles.statLabel}>Followers</Text>
         </View>
         <View style={styles.statItem}>
-          <Text style={styles.statNumber}>{profile?.following_count}</Text>
+          <Text style={styles.statValue}>{profile?.following_count}</Text>
           <Text style={styles.statLabel}>Following</Text>
         </View>
       </View>
 
       <View style={styles.interestsContainer}>
-        <Text style={styles.interestsTitle}>Interests</Text>
+        <Text style={styles.sectionTitle}>Interests</Text>
         <View style={styles.interestsList}>
           {profile?.interests.map((interest, index) => (
             <View key={index} style={styles.interestChip}>
@@ -389,7 +387,7 @@ export default function Profile() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#F8F9FD',
   },
   loadingContainer: {
     flex: 1,
@@ -399,62 +397,240 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 10,
     fontSize: 16,
-    color: '#666',
+    color: '#6E7191',
+    fontWeight: '500',
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 15,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    padding: 16,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 0,
+    shadowColor: '#8A64F7',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  backButton: {
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: '#F3F4FC',
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  logoutButton: {
-    padding: 5,
-  },
-  profileHeader: {
-    backgroundColor: '#fff',
-    padding: 15,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  avatarContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: '#306998',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 15,
-  },
-  avatarText: {
-    color: '#fff',
-    fontSize: 32,
-    fontWeight: 'bold',
-  },
-  profileInfo: {
-    flex: 1,
-  },
-  username: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#1A1D3F',
+  },
+  iconButton: {
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: '#F3F4FC',
+  },
+  profileHeader: {
+    padding: 20,
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    marginBottom: 8,
+    shadowColor: '#8A64F7',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  avatarContainer: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: '#5561F5',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+    shadowColor: '#8A64F7',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  avatarText: {
+    color: '#FFFFFF',
+    fontSize: 36,
+    fontWeight: 'bold',
+  },
+  username: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#1A1D3F',
+    marginBottom: 4,
   },
   fullName: {
     fontSize: 16,
-    color: '#666',
-    marginTop: 2,
+    color: '#6E7191',
+    marginBottom: 8,
   },
   bio: {
     fontSize: 14,
-    color: '#666',
-    marginTop: 5,
+    color: '#6E7191',
+    textAlign: 'center',
+    marginBottom: 16,
+    lineHeight: 20,
+  },
+  statsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    width: '100%',
+    marginBottom: 16,
+  },
+  statItem: {
+    alignItems: 'center',
+  },
+  statValue: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1A1D3F',
+  },
+  statLabel: {
+    fontSize: 14,
+    color: '#6E7191',
+  },
+  actionButton: {
+    backgroundColor: '#5561F5',
+    borderRadius: 30,
+    paddingVertical: 10,
+    paddingHorizontal: 24,
+    shadowColor: '#5561F5',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  actionButtonOutline: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: '#5561F5',
+  },
+  actionButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  actionButtonTextOutline: {
+    color: '#5561F5',
+  },
+  interestsContainer: {
+    backgroundColor: '#FFFFFF',
+    padding: 16,
+    marginBottom: 8,
+    shadowColor: '#8A64F7',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#1A1D3F',
+    marginBottom: 12,
+  },
+  interestsList: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  interestChip: {
+    backgroundColor: '#F3F4FC',
+    borderRadius: 30,
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+    marginRight: 8,
+    marginBottom: 8,
+    borderWidth:.5,
+    borderColor: '#EEEFF5',
+  },
+  interestText: {
+    color: '#6E7191',
+    fontSize: 13,
+  },
+  postsContainer: {
+    backgroundColor: '#FFFFFF',
+    flex: 1,
+  },
+  postsList: {
+    padding: 12,
+  },
+  postItem: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 16,
+    marginBottom: 12,
+    shadowColor: '#8A64F7',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  postContent: {
+    fontSize: 16,
+    color: '#1A1D3F',
+    marginBottom: 16,
+    lineHeight: 24,
+  },
+  postFooter: {
+    flexDirection: 'row',
+    borderTopWidth: 1,
+    borderTopColor: '#EEEFF5',
+    paddingTop: 12,
+  },
+  postAction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 20,
+  },
+  postActionText: {
+    marginLeft: 6,
+    color: '#6E7191',
+  },
+  timestamp: {
+    fontSize: 12,
+    color: '#A0A3BD',
+    marginTop: 8,
+  },
+  emptyContainer: {
+    padding: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 200,
+  },
+  emptyText: {
+    fontSize: 16,
+    color: '#6E7191',
+    textAlign: 'center',
+    fontWeight: '500',
+    marginTop: 12,
+  },
+  tabBar: {
+    flexDirection: 'row',
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#EEEFF5',
+  },
+  tab: {
+    flex: 1,
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
+  activeTab: {
+    borderBottomWidth: 2,
+    borderBottomColor: '#5561F5',
+  },
+  tabText: {
+    fontSize: 15,
+    color: '#6E7191',
+  },
+  activeTabText: {
+    fontWeight: 'bold',
+    color: '#5561F5',
   },
   editButton: {
     backgroundColor: '#306998',
@@ -466,104 +642,6 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 14,
     fontWeight: 'bold',
-  },
-  statsContainer: {
-    flexDirection: 'row',
-    backgroundColor: '#fff',
-    padding: 15,
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: '#eee',
-  },
-  statItem: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  statNumber: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  statLabel: {
-    fontSize: 14,
-    color: '#666',
-    marginTop: 2,
-  },
-  interestsContainer: {
-    backgroundColor: '#fff',
-    padding: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-  },
-  interestsTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 10,
-  },
-  interestsList: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
-  interestChip: {
-    backgroundColor: '#f0f0f0',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 15,
-    marginRight: 8,
-    marginBottom: 8,
-  },
-  interestText: {
-    color: '#333',
-    fontSize: 14,
-  },
-  postsList: {
-    padding: 10,
-  },
-  postContainer: {
-    backgroundColor: '#fff',
-    borderRadius: 10,
-    padding: 15,
-    marginBottom: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  postContent: {
-    fontSize: 16,
-    color: '#333',
-    marginBottom: 10,
-    lineHeight: 22,
-  },
-  timestamp: {
-    fontSize: 12,
-    color: '#666',
-    marginBottom: 10,
-  },
-  postActions: {
-    flexDirection: 'row',
-    borderTopWidth: 1,
-    borderTopColor: '#eee',
-    paddingTop: 10,
-  },
-  actionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginRight: 20,
-  },
-  actionText: {
-    marginLeft: 5,
-    color: '#666',
-  },
-  emptyContainer: {
-    padding: 20,
-    alignItems: 'center',
-  },
-  emptyText: {
-    fontSize: 16,
-    color: '#666',
   },
   modalContainer: {
     flex: 1,

@@ -153,33 +153,27 @@ export default function Messages() {
 
   const renderConversation = ({ item }: { item: Conversation }) => (
     <TouchableOpacity 
-      style={styles.conversationContainer}
+      style={styles.conversationItem}
       onPress={() => handleConversationPress(item)}
     >
-      <View style={styles.userInfo}>
-        <View style={styles.avatarContainer}>
-          <Text style={styles.avatarText}>
-            {item.user.username.charAt(0).toUpperCase()}
+      <View style={styles.avatarContainer}>
+        <Text style={styles.avatarText}>
+          {item.user.username.charAt(0).toUpperCase()}
+        </Text>
+      </View>
+      <View style={styles.conversationInfo}>
+        <View style={styles.usernameRow}>
+          <Text style={styles.username}>{item.user.username}</Text>
+          <Text style={styles.time}>
+            {new Date(item.last_message_time).toLocaleDateString()}
           </Text>
         </View>
-        <View style={styles.contentContainer}>
-          <View style={styles.headerContainer}>
-            <Text style={styles.username}>{item.user.username}</Text>
-            <Text style={styles.timestamp}>
-              {new Date(item.last_message_time).toLocaleDateString()}
-            </Text>
-          </View>
-          <View style={styles.messageContainer}>
-            <Text style={styles.lastMessage} numberOfLines={1}>
-              {item.last_message || 'No messages yet'}
-            </Text>
-            {item.unread_count > 0 && (
-              <View style={styles.unreadBadge}>
-                <Text style={styles.unreadCount}>{item.unread_count}</Text>
-              </View>
-            )}
-          </View>
-        </View>
+        <Text style={styles.lastMessage} numberOfLines={1}>
+          {item.last_message || 'No messages yet'}
+        </Text>
+        {item.unread_count > 0 && (
+          <View style={styles.newMessageIndicator} />
+        )}
       </View>
     </TouchableOpacity>
   );
@@ -243,6 +237,13 @@ export default function Messages() {
           </View>
         }
       />
+
+      <TouchableOpacity 
+        style={styles.newChatButton}
+        onPress={() => router.push('/search')}
+      >
+        <Ionicons name="add" size={24} color="#FFFFFF" />
+      </TouchableOpacity>
     </View>
   );
 }
@@ -250,7 +251,83 @@ export default function Messages() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#F8F9FD',
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 0,
+    shadowColor: '#8A64F7',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1A1D3F',
+  },
+  conversationItem: {
+    flexDirection: 'row',
+    backgroundColor: '#FFFFFF',
+    padding: 16,
+    borderRadius: 20,
+    marginHorizontal: 16,
+    marginTop: 12,
+    alignItems: 'center',
+    shadowColor: '#8A64F7',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  avatarContainer: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: '#5561F5',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  avatarText: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  conversationInfo: {
+    flex: 1,
+  },
+  usernameRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  username: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#1A1D3F',
+  },
+  time: {
+    fontSize: 12,
+    color: '#A0A3BD',
+  },
+  lastMessage: {
+    fontSize: 14,
+    color: '#6E7191',
+    marginTop: 2,
+  },
+  newMessageIndicator: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#5561F5',
+    marginLeft: 6,
   },
   loadingContainer: {
     flex: 1,
@@ -260,40 +337,61 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 10,
     fontSize: 16,
-    color: '#666',
+    color: '#6E7191',
+    fontWeight: '500',
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
     alignItems: 'center',
-    padding: 15,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    padding: 20,
   },
-  backButton: {
-    padding: 5,
+  emptyText: {
+    fontSize: 16,
+    color: '#6E7191',
+    textAlign: 'center',
+    marginTop: 10,
+    fontWeight: '500',
   },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
+  newChatButton: {
+    backgroundColor: '#5561F5',
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'absolute',
+    bottom: 20,
+    right: 20,
+    shadowColor: '#5561F5',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
   },
   searchContainer: {
     flexDirection: 'row',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    marginHorizontal: 16,
+    marginVertical: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
     alignItems: 'center',
-    padding: 10,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    shadowColor: '#8A64F7',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  searchIcon: {
+    marginRight: 10,
+    color: '#A0A3BD',
   },
   searchInput: {
     flex: 1,
-    height: 40,
-    backgroundColor: '#f5f5f5',
-    borderRadius: 20,
-    paddingHorizontal: 15,
-    marginRight: 10,
+    fontSize: 16,
+    color: '#1A1D3F',
   },
   searchButton: {
     padding: 10,
@@ -301,83 +399,7 @@ const styles = StyleSheet.create({
   conversationsList: {
     padding: 10,
   },
-  conversationContainer: {
-    backgroundColor: '#fff',
-    borderRadius: 10,
-    padding: 15,
-    marginBottom: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  userInfo: {
-    flexDirection: 'row',
-  },
-  avatarContainer: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: '#306998',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 15,
-  },
-  avatarText: {
-    color: '#fff',
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
-  contentContainer: {
-    flex: 1,
-  },
-  headerContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 5,
-  },
-  username: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  timestamp: {
-    fontSize: 12,
-    color: '#666',
-  },
-  messageContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  lastMessage: {
-    flex: 1,
-    fontSize: 14,
-    color: '#666',
-    marginRight: 10,
-  },
-  unreadBadge: {
-    backgroundColor: '#306998',
-    borderRadius: 10,
-    minWidth: 20,
-    height: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 6,
-  },
-  unreadCount: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
-  emptyContainer: {
-    padding: 20,
-    alignItems: 'center',
-  },
-  emptyText: {
-    fontSize: 16,
-    color: '#666',
+  backButton: {
+    padding: 5,
   },
 }); 

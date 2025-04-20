@@ -1,180 +1,271 @@
 import { useState } from 'react';
-import { Text, View, StyleSheet, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView, Alert } from 'react-native';
-import { Link, router } from 'expo-router';
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  FlatList
+} from 'react-native';
 import { useAuth } from '../contexts/AuthContext';
-import { supabase } from '../lib/supabase';
+import { router } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import React from 'react';
 
-const INTERESTS = [
-  "Acting", "Abacus", "Art", "Baking", "Beauty", "Calligraphy", 
-  "Coding", "Cooking", "Comedy", "Dance", "Design", "DIY", 
-  "Gaming", "Fitness", "Gardening", "Music", "Poetry", "Photography", 
-  "Reading", "Singing", "Sports", "Tech", "Travel", "Writing"
+// Available interests to choose from
+const AVAILABLE_INTERESTS = [
+  'Technology', 'Programming', 'Design', 'UX/UI', 'Mobile Apps',
+  'Web Development', 'Data Science', 'AI/ML', 'Cloud Computing',
+  'DevOps', 'Blockchain', 'IoT', 'Gaming', 'Cybersecurity',
+  'Digital Marketing', 'E-commerce', 'Startups', 'Product Management',
+  'Remote Work', 'Career Growth'
 ];
 
 export default function Signup() {
-  const [fullName, setFullName] = useState('');
-  const [username, setUsername] = useState('');
+  const { signUp } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
+  const [username, setUsername] = useState('');
+  const [fullName, setFullName] = useState('');
   const [loading, setLoading] = useState(false);
-  const { signUp } = useAuth();
+  const [step, setStep] = useState(1); // Step 1: Account info, Step 2: Interests
+  const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const handleNext = () => {
+    if (!email || !password || !username || !fullName) {
+      Alert.alert('Error', 'Please fill in all fields');
+      return;
+    }
+    setStep(2);
+  };
 
   const toggleInterest = (interest: string) => {
     if (selectedInterests.includes(interest)) {
-      setSelectedInterests(selectedInterests.filter(i => i !== interest));
+      setSelectedInterests(selectedInterests.filter(item => item !== interest));
     } else {
       if (selectedInterests.length < 5) {
         setSelectedInterests([...selectedInterests, interest]);
+      } else {
+        Alert.alert('Limit Reached', 'You can select up to 5 interests');
       }
     }
   };
 
   const handleSignup = async () => {
-    if (!fullName || !username || !email || !password) {
-      Alert.alert('Error', 'Please fill in all fields');
-      return;
-    }
-
-    if (selectedInterests.length < 3) {
-      Alert.alert('Error', 'Please select at least 3 interests');
+    if (selectedInterests.length === 0) {
+      Alert.alert('Error', 'Please select at least one interest');
       return;
     }
 
     try {
       setLoading(true);
-      
-      // First, check if username is already taken
-      const { data: existingUser } = await supabase
-        .from('profiles')
-        .select('username')
-        .eq('username', username)
-        .single();
-
-      if (existingUser) {
-        Alert.alert('Error', 'Username is already taken');
-        return;
-      }
-
-      // Create the user account
       await signUp(email, password, {
-        full_name: fullName,
         username: username,
-        interests: selectedInterests,
+        full_name: fullName,
+        interests: selectedInterests
       });
-
-      Alert.alert(
-        'Success',
-        'Please check your email for verification link',
-        [{ text: 'OK', onPress: () => router.replace('/login') }]
-      );
+      router.replace('/home');
     } catch (error: any) {
-      Alert.alert('Error', error.message);
+      Alert.alert('Error', error.message || 'Failed to sign up. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
+  // Filter interests based on search query
+  const filteredInterests = searchQuery.trim() === '' 
+    ? AVAILABLE_INTERESTS 
+    : AVAILABLE_INTERESTS.filter(interest => 
+        interest.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+
+  const renderInterestItem = ({ item }: { item: string }) => {
+    const isSelected = selectedInterests.includes(item);
+    return (
+      <TouchableOpacity 
+        style={[styles.interestChip, isSelected && styles.selectedInterestChip]} 
+        onPress={() => toggleInterest(item)}
+      >
+        {isSelected && (
+          <Ionicons name="checkmark-circle" size={16} color="#5561F5" style={styles.checkIcon} />
+        )}
+        <Text style={[styles.interestText, isSelected && styles.selectedInterestText]}>
+          {item}
+        </Text>
+      </TouchableOpacity>
+    );
+  };
+
   return (
-    <KeyboardAvoidingView 
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    <KeyboardAvoidingView
       style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <ScrollView style={styles.scrollView}>
-        <View style={styles.formContainer}>
-          <Text style={styles.title}>Create Account</Text>
-          
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>Full Name</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Enter your full name"
-              value={fullName}
-              onChangeText={setFullName}
-              editable={!loading}
-            />
-          </View>
-
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>Username</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Choose a username"
-              value={username}
-              onChangeText={setUsername}
-              autoCapitalize="none"
-              editable={!loading}
-            />
-          </View>
-
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>Email</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Enter your email"
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              editable={!loading}
-            />
-          </View>
-
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>Password</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Create a password"
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-              editable={!loading}
-            />
-          </View>
-
-          <View style={styles.interestsContainer}>
-            <Text style={styles.label}>Select Interests (3-5)</Text>
-            <Text style={styles.subLabel}>Selected: {selectedInterests.length}/5</Text>
-            <View style={styles.interestsGrid}>
-              {INTERESTS.map((interest) => (
-                <TouchableOpacity
-                  key={interest}
-                  style={[
-                    styles.interestButton,
-                    selectedInterests.includes(interest) && styles.selectedInterest
-                  ]}
-                  onPress={() => toggleInterest(interest)}
-                  disabled={loading}
-                >
-                  <Text style={[
-                    styles.interestText,
-                    selectedInterests.includes(interest) && styles.selectedInterestText
-                  ]}>
-                    {interest}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+      <ScrollView
+        contentContainerStyle={styles.scrollContainer}
+        showsVerticalScrollIndicator={false}
+      >
+        {step === 1 ? (
+          <>
+            <View style={styles.headerContainer}>
+              <Text style={styles.title}>Create Account</Text>
+              <Text style={styles.subtitle}>Sign up to get started</Text>
             </View>
-          </View>
 
-          <TouchableOpacity 
-            style={[styles.button, loading && styles.buttonDisabled]} 
-            onPress={handleSignup}
-            disabled={loading}
-          >
-            <Text style={styles.buttonText}>
-              {loading ? 'Creating Account...' : 'Sign Up'}
-            </Text>
-          </TouchableOpacity>
+            <View style={styles.progressContainer}>
+              <View style={styles.progressBar}>
+                <View style={[styles.progressIndicator, { width: '50%' }]} />
+              </View>
+              <Text style={styles.progressText}>Step 1 of 2</Text>
+            </View>
 
-          <View style={styles.footer}>
-            <Text style={styles.footerText}>Already have an account? </Text>
-            <Link href="/login" asChild>
-              <TouchableOpacity>
-                <Text style={styles.linkText}>Login</Text>
+            <View style={styles.formContainer}>
+              <View style={styles.inputContainer}>
+                <Ionicons name="person-outline" size={22} color="#6E7191" style={styles.inputIcon} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Full Name"
+                  placeholderTextColor="#A0A3BD"
+                  value={fullName}
+                  onChangeText={setFullName}
+                />
+              </View>
+
+              <View style={styles.inputContainer}>
+                <Ionicons name="at-outline" size={22} color="#6E7191" style={styles.inputIcon} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Username"
+                  placeholderTextColor="#A0A3BD"
+                  value={username}
+                  onChangeText={setUsername}
+                  autoCapitalize="none"
+                />
+              </View>
+
+              <View style={styles.inputContainer}>
+                <Ionicons name="mail-outline" size={22} color="#6E7191" style={styles.inputIcon} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Email"
+                  placeholderTextColor="#A0A3BD"
+                  value={email}
+                  onChangeText={setEmail}
+                  autoCapitalize="none"
+                  keyboardType="email-address"
+                />
+              </View>
+
+              <View style={styles.inputContainer}>
+                <Ionicons name="lock-closed-outline" size={22} color="#6E7191" style={styles.inputIcon} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Password"
+                  placeholderTextColor="#A0A3BD"
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry
+                />
+              </View>
+
+              <TouchableOpacity
+                style={styles.signupButton}
+                onPress={handleNext}
+              >
+                <Text style={styles.signupButtonText}>Next</Text>
+                <Ionicons name="arrow-forward" size={18} color="#FFFFFF" style={{ marginLeft: 8 }} />
               </TouchableOpacity>
-            </Link>
-          </View>
+            </View>
+          </>
+        ) : (
+          <>
+            <View style={styles.headerContainer}>
+              <Text style={styles.title}>Select Interests</Text>
+              <Text style={styles.subtitle}>Choose up to 5 topics that interest you</Text>
+            </View>
+
+            <View style={styles.progressContainer}>
+              <View style={styles.progressBar}>
+                <View style={[styles.progressIndicator, { width: '100%' }]} />
+              </View>
+              <Text style={styles.progressText}>Step 2 of 2</Text>
+            </View>
+
+            <View style={styles.searchContainer}>
+              <Ionicons name="search" size={20} color="#A0A3BD" style={styles.searchIcon} />
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Search interests..."
+                placeholderTextColor="#A0A3BD"
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+              />
+              {searchQuery.length > 0 && (
+                <TouchableOpacity onPress={() => setSearchQuery('')}>
+                  <Ionicons name="close-circle" size={20} color="#A0A3BD" />
+                </TouchableOpacity>
+              )}
+            </View>
+
+            <View style={styles.interestsContainer}>
+              <Text style={styles.selectionCount}>
+                {selectedInterests.length}/5 interests selected
+              </Text>
+              
+              <View style={styles.interestsList}>
+                {filteredInterests.length > 0 ? (
+                  filteredInterests.map((interest, index) => (
+                    <React.Fragment key={interest}>
+                      {renderInterestItem({ item: interest })}
+                    </React.Fragment>
+                  ))
+                ) : (
+                  <Text style={styles.noResultsText}>No matching interests found</Text>
+                )}
+              </View>
+            </View>
+
+            <View style={styles.navigationButtons}>
+              <TouchableOpacity
+                style={styles.backButton}
+                onPress={() => setStep(1)}
+              >
+                <Ionicons name="arrow-back" size={18} color="#5561F5" style={{ marginRight: 8 }} />
+                <Text style={styles.backButtonText}>Back</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.signupButton}
+                onPress={handleSignup}
+                disabled={loading}
+              >
+                {loading ? (
+                  <ActivityIndicator color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.signupButtonText}>Create Account</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </>
+        )}
+
+        <View style={styles.termsContainer}>
+          <Text style={styles.termsText}>
+            By signing up, you agree to our <Text style={styles.termsLink}>Terms of Service</Text> and <Text style={styles.termsLink}>Privacy Policy</Text>
+          </Text>
+        </View>
+
+        <View style={styles.footer}>
+          <Text style={styles.footerText}>Already have an account? </Text>
+          <TouchableOpacity onPress={() => router.push('/login')}>
+            <Text style={styles.loginLink}>Sign In</Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -184,95 +275,215 @@ export default function Signup() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#ffffff',
+    backgroundColor: '#F8F9FD',
   },
-  scrollView: {
-    flex: 1,
+  scrollContainer: {
+    flexGrow: 1,
+    paddingHorizontal: 24,
+    paddingTop: 60,
+    paddingBottom: 40,
   },
-  formContainer: {
-    padding: 20,
+  headerContainer: {
+    marginBottom: 24,
+    alignItems: 'center',
   },
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#333333',
-    marginBottom: 30,
+    color: '#1A1D3F',
+    marginBottom: 8,
+  },
+  subtitle: {
+    fontSize: 16,
+    color: '#6E7191',
     textAlign: 'center',
   },
-  inputContainer: {
-    marginBottom: 20,
+  progressContainer: {
+    marginBottom: 24,
   },
-  label: {
-    fontSize: 16,
-    color: '#333333',
+  progressBar: {
+    height: 8,
+    backgroundColor: '#EEEFF5',
+    borderRadius: 4,
+    overflow: 'hidden',
     marginBottom: 8,
   },
-  subLabel: {
+  progressIndicator: {
+    height: '100%',
+    backgroundColor: '#5561F5',
+    borderRadius: 4,
+  },
+  progressText: {
     fontSize: 14,
-    color: '#666666',
-    marginBottom: 12,
+    color: '#6E7191',
+    textAlign: 'right',
+  },
+  formContainer: {
+    marginBottom: 24,
+  },
+  inputContainer: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginBottom: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#EEEFF5',
+    shadowColor: '#8A64F7',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  inputIcon: {
+    marginRight: 12,
   },
   input: {
-    borderWidth: 1,
-    borderColor: '#dddddd',
-    borderRadius: 8,
-    padding: 12,
+    flex: 1,
     fontSize: 16,
-    backgroundColor: '#f8f8f8',
+    color: '#1A1D3F',
+  },
+  signupButton: {
+    backgroundColor: '#5561F5',
+    borderRadius: 16,
+    paddingVertical: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 8,
+    shadowColor: '#5561F5',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
+    flexDirection: 'row',
+  },
+  signupButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
   interestsContainer: {
-    marginBottom: 20,
+    marginBottom: 24,
   },
-  interestsGrid: {
+  selectionCount: {
+    fontSize: 15,
+    color: '#6E7191',
+    marginBottom: 16,
+    textAlign: 'center',
+    fontWeight: '500',
+  },
+  interestsList: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 10,
+    justifyContent: 'center',
   },
-  interestButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+  interestChip: {
+    backgroundColor: '#FFFFFF',
     borderRadius: 20,
-    backgroundColor: '#f0f0f0',
-    marginBottom: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    margin: 6,
+    borderWidth: 1,
+    borderColor: '#EEEFF5',
+    flexDirection: 'row',
+    alignItems: 'center',
   },
-  selectedInterest: {
-    backgroundColor: '#306998',
+  selectedInterestChip: {
+    backgroundColor: '#F0F2FF',
+    borderColor: '#5561F5',
+  },
+  checkIcon: {
+    marginRight: 6,
   },
   interestText: {
-    color: '#333333',
+    color: '#6E7191',
     fontSize: 14,
   },
   selectedInterestText: {
-    color: '#ffffff',
+    color: '#5561F5',
+    fontWeight: '500',
   },
-  button: {
-    backgroundColor: '#306998',
-    padding: 15,
-    borderRadius: 8,
+  navigationButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 24,
+  },
+  backButton: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
     alignItems: 'center',
-    marginTop: 10,
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#EEEFF5',
+    flexDirection: 'row',
+    flex: 0.45,
   },
-  buttonDisabled: {
-    opacity: 0.7,
-  },
-  buttonText: {
-    color: '#ffffff',
-    fontSize: 18,
+  backButtonText: {
+    color: '#5561F5',
+    fontSize: 16,
     fontWeight: '600',
+  },
+  termsContainer: {
+    marginBottom: 30,
+  },
+  termsText: {
+    fontSize: 13,
+    color: '#6E7191',
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  termsLink: {
+    color: '#5561F5',
+    fontWeight: '500',
   },
   footer: {
     flexDirection: 'row',
     justifyContent: 'center',
-    marginTop: 20,
-    marginBottom: 30,
+    alignItems: 'center',
+    marginTop: 'auto',
   },
   footerText: {
-    color: '#666666',
-    fontSize: 16,
+    color: '#6E7191',
+    fontSize: 14,
   },
-  linkText: {
-    color: '#306998',
+  loginLink: {
+    color: '#5561F5',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginBottom: 16,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#EEEFF5',
+    shadowColor: '#8A64F7',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  searchIcon: {
+    marginRight: 12,
+  },
+  searchInput: {
+    flex: 1,
     fontSize: 16,
-    fontWeight: '600',
+    color: '#1A1D3F',
+  },
+  noResultsText: {
+    fontSize: 16,
+    color: '#6E7191',
+    marginTop: 20,
+    marginBottom: 20,
+    textAlign: 'center',
   },
 }); 

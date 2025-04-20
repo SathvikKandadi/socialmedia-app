@@ -550,7 +550,7 @@ export default function Chat() {
     return (
       <View style={[
         styles.messageContainer,
-        isOwnMessage ? styles.ownMessage : styles.otherMessage
+        isOwnMessage ? styles.myMessage : styles.otherMessage
       ]}>
         {!isOwnMessage && (
           <View style={styles.avatarContainer}>
@@ -561,7 +561,7 @@ export default function Chat() {
         )}
         <View style={[
           styles.messageContent,
-          isOwnMessage ? styles.ownMessageContent : styles.otherMessageContent
+          isOwnMessage ? styles.myMessageContent : styles.otherMessageContent
         ]}>
           {item.content ? (
             <Text style={styles.messageText} testID="messageText">
@@ -695,7 +695,7 @@ export default function Chat() {
         <TouchableOpacity 
           style={[
             styles.sendButton,
-            (!newMessage.trim() || sending) && styles.sendButtonDisabled
+            (!newMessage.trim() || sending) && styles.disabledSendButton
           ]}
           onPress={handleSend}
           disabled={!newMessage.trim() || sending}
@@ -714,86 +714,88 @@ export default function Chat() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: 10,
-    fontSize: 16,
-    color: '#666',
+    backgroundColor: '#F8F9FD',
   },
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 15,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    justifyContent: 'space-between',
+    padding: 16,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 0,
+    shadowColor: '#8A64F7',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 5,
   },
-  backButton: {
-    padding: 5,
-  },
-  headerUserInfo: {
+  headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  avatarContainer: {
-    width: 40,
-    height: 40,
+  backButton: {
+    padding: 8,
     borderRadius: 20,
-    backgroundColor: '#306998',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 10,
+    backgroundColor: '#F3F4FC',
+    marginRight: 12,
   },
-  avatarText: {
-    color: '#fff',
-    fontSize: 16,
+  headerTitle: {
+    fontSize: 18,
     fontWeight: 'bold',
+    color: '#1A1D3F',
   },
-  username: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333',
+  headerSubtitle: {
+    fontSize: 13,
+    color: '#6E7191',
   },
-  fullName: {
-    fontSize: 12,
-    color: '#666',
+  iconButton: {
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: '#F3F4FC',
   },
   messagesList: {
     padding: 15,
   },
   messageContainer: {
-    flexDirection: 'row',
-    marginBottom: 15,
+    marginVertical: 4,
+    marginHorizontal: 12,
     maxWidth: '80%',
   },
-  ownMessage: {
+  myMessage: {
     alignSelf: 'flex-end',
+    backgroundColor: '#5561F5',
+    borderRadius: 20,
+    borderBottomRightRadius: 4,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    shadowColor: '#8A64F7',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
   otherMessage: {
     alignSelf: 'flex-start',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    borderBottomLeftRadius: 4,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    shadowColor: '#8A64F7',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
-  messageContent: {
-    padding: 12,
-    borderRadius: 10,
-    maxWidth: '80%',
-  },
-  ownMessageContent: {
-    backgroundColor: '#306998',
+  myMessageContent: {
+    backgroundColor: '#5561F5',
   },
   otherMessageContent: {
-    backgroundColor: '#e5e5ea',
+    backgroundColor: '#FFFFFF',
   },
   messageText: {
+    color: '#FFFFFF',
     fontSize: 16,
-    color: '#fff',
-    marginBottom: 5,
   },
   emptyMessageText: {
     fontSize: 14,
@@ -809,44 +811,50 @@ const styles = StyleSheet.create({
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 10,
-    backgroundColor: '#fff',
+    backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
-    borderTopColor: '#eee',
+    borderTopColor: '#EEEFF5',
+    padding: 12,
   },
   input: {
     flex: 1,
-    minHeight: 40,
-    maxHeight: 100,
-    backgroundColor: '#f5f5f5',
-    borderRadius: 20,
-    paddingHorizontal: 15,
-    paddingVertical: 10,
-    marginRight: 10,
+    backgroundColor: '#F3F4FC',
+    borderRadius: 24,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     fontSize: 16,
+    color: '#1A1D3F',
+    maxHeight: 120,
   },
   sendButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#306998',
+    backgroundColor: '#5561F5',
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     justifyContent: 'center',
     alignItems: 'center',
+    marginLeft: 12,
+    shadowColor: '#5561F5',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 2,
   },
-  sendButtonDisabled: {
-    backgroundColor: '#ccc',
+  disabledSendButton: {
+    backgroundColor: '#A0A3BD',
+    shadowOpacity: 0,
   },
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
-    height: 200,
   },
   emptyText: {
-    fontSize: 18,
-    color: '#666',
-    marginBottom: 10,
+    fontSize: 16,
+    color: '#6E7191',
+    marginTop: 12,
+    textAlign: 'center',
   },
   emptySubText: {
     fontSize: 14,
@@ -861,20 +869,23 @@ const styles = StyleSheet.create({
     marginLeft: 5,
   },
   debugPanel: {
-    backgroundColor: '#f8f9fa',
-    padding: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#ddd',
+    backgroundColor: 'rgba(255, 107, 107, 0.1)',
+    padding: 12,
+    margin: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#FF6B6B',
   },
   debugTitle: {
+    fontSize: 14,
     fontWeight: 'bold',
-    marginBottom: 5,
-    color: '#333',
+    color: '#1A1D3F',
+    marginBottom: 8,
   },
   debugInfo: {
     fontSize: 12,
-    color: '#666',
-    marginBottom: 2,
+    color: '#6E7191',
+    marginBottom: 4,
   },
   debugText: {
     fontSize: 10,
@@ -897,5 +908,52 @@ const styles = StyleSheet.create({
   debugButtonText: {
     color: '#fff',
     fontSize: 14,
+  },
+  avatarContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#5561F5',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#8A64F7',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  avatarText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  username: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  fullName: {
+    fontSize: 12,
+    color: '#666',
+  },
+  messageContent: {
+    padding: 12,
+    borderRadius: 16,
+    maxWidth: '80%',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: '#6E7191',
+    fontWeight: '500',
+  },
+  headerUserInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
 }); 

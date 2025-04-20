@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   View, 
   Text, 
@@ -11,7 +11,8 @@ import {
   RefreshControl,
   Alert,
   ScrollView,
-  AppState
+  AppState,
+  GestureResponderEvent
 } from 'react-native';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
@@ -32,6 +33,7 @@ type Post = {
   user: {
     username: string;
     full_name: string;
+    interests?: string[];
   };
   likes_count: number;
   comments_count: number;
@@ -51,6 +53,9 @@ export default function Home() {
   const [refreshing, setRefreshing] = useState(false);
   const [pendingFollowRequests, setPendingFollowRequests] = useState(0);
   const [notifications, setNotifications] = useState(0);
+  const [connectingUsers, setConnectingUsers] = useState<string[]>([]);
+  const [touchStart, setTouchStart] = useState(0);
+  const [touchEnd, setTouchEnd] = useState(0);
 
   // Fetch posts, interests, and other data
   useEffect(() => {
@@ -62,9 +67,20 @@ export default function Home() {
     if (selectedInterests.length === 0) {
       setFilteredPosts(posts);
     } else {
-      // In a real app, you would filter by the user's interests
-      // For now, we'll just show all posts
-      setFilteredPosts(posts);
+      // Filter posts where any of the post author's interests match the selected interests
+      const filtered = posts.filter(post => {
+        // Check if the post's author has any of the selected interests
+        return post.user.interests && post.user.interests.some(interest => 
+          selectedInterests.includes(interest)
+        );
+      });
+      
+      setFilteredPosts(filtered);
+      
+      // If no posts match the selected interests, show a message
+      if (filtered.length === 0 && posts.length > 0) {
+        console.log('No posts found for the selected interests');
+      }
     }
   }, [selectedInterests, posts]);
 
@@ -87,10 +103,10 @@ export default function Home() {
           // 2. Process each post to add user, likes, and comments data
           for (const post of postsData) {
             try {
-              // Get user profile
+              // Get user profile with interests
               const { data: userData } = await supabase
                 .from('profiles')
-                .select('username, full_name')
+                .select('username, full_name, interests')
                 .eq('id', post.user_id)
                 .single();
               
@@ -121,7 +137,8 @@ export default function Home() {
                 created_at: post.created_at,
                 user: {
                   username: userData?.username || 'Unknown',
-                  full_name: userData?.full_name || 'Unknown User'
+                  full_name: userData?.full_name || 'Unknown User',
+                  interests: userData?.interests || []
                 },
                 likes_count: likesCount || 0,
                 comments_count: commentsCount || 0,
@@ -133,7 +150,8 @@ export default function Home() {
                 ...post,
                 user: {
                   username: 'Unknown',
-                  full_name: 'Unknown User'
+                  full_name: 'Unknown User',
+                  interests: []
                 },
                 likes_count: 0,
                 comments_count: 0,
@@ -276,6 +294,121 @@ export default function Home() {
     }
   };
 
+  const handleConnect = async (userId: string) => {
+    try {
+      // Don't allow connecting to yourself
+      if (userId === session?.user.id) {
+        Alert.alert('Info', 'You cannot follow yourself');
+        return;
+      }
+
+      // Set the user as "connecting" to show loading state
+      setConnectingUsers([...connectingUsers, userId]);
+
+      // Check if a follow relationship already exists
+      const { data: existingFollow, error: checkError } = await supabase
+        .from('followers')
+        .select('*')
+        .eq('follower_id', session?.user.id)
+        .eq('following_id', userId)
+        .single();
+
+      if (checkError && checkError.code !== 'PGRST116') { // PGRST116 is the error code for "no rows returned"
+        throw checkError;
+      }
+
+      // Check if the other person follows you
+      const { data: otherFollow, error: otherCheckError } = await supabase
+        .from('followers')
+        .select('*')
+        .eq('follower_id', userId)
+        .eq('following_id', session?.user.id)
+        .single();
+
+      if (otherCheckError && otherCheckError.code !== 'PGRST116') {
+        throw otherCheckError;
+      }
+
+      if (existingFollow) {
+        // You already follow this user
+        if (existingFollow.status === 'accepted') {
+          Alert.alert('Already Following', 'You are already following this user');
+        } else if (existingFollow.status === 'pending') {
+          Alert.alert('Request Pending', 'Your follow request is pending approval');
+        } else if (existingFollow.status === 'rejected') {
+          // Allow to send a request again
+          const { error: updateError } = await supabase
+            .from('followers')
+            .update({ status: 'pending', updated_at: new Date().toISOString() })
+            .eq('id', existingFollow.id);
+            
+          if (updateError) throw updateError;
+          
+          Alert.alert('Success', 'Follow request sent');
+        }
+      } else if (otherFollow && otherFollow.status === 'pending') {
+        // They requested to follow you, offer to accept
+        Alert.alert(
+          'Follow Request', 
+          'This user has sent you a follow request', 
+          [
+            { text: 'Cancel' },
+            { 
+              text: 'Accept Request', 
+              onPress: async () => {
+                try {
+                  const { error: updateError } = await supabase
+                    .from('followers')
+                    .update({ status: 'accepted' })
+                    .eq('id', otherFollow.id);
+                    
+                  if (updateError) throw updateError;
+                  
+                  // Also follow them back
+                  const { error: insertError } = await supabase
+                    .from('followers')
+                    .insert({
+                      follower_id: session?.user.id,
+                      following_id: userId,
+                      status: 'accepted'
+                    });
+                    
+                  if (insertError) throw insertError;
+                  
+                  Alert.alert('Success', 'You are now following each other!');
+                } catch (err) {
+                  console.error('Error accepting request:', err);
+                  Alert.alert('Error', 'Failed to accept request. Please try again.');
+                }
+              } 
+            }
+          ]
+        );
+      } else {
+        // No existing follow relationship, create a new follow request
+        const { error: insertError } = await supabase
+          .from('followers')
+          .insert({
+            follower_id: session?.user.id,
+            following_id: userId,
+            status: 'pending'
+          });
+          
+        if (insertError) throw insertError;
+        
+        // The notification will be automatically created by the database trigger
+        
+        Alert.alert('Success', 'Follow request sent successfully');
+      }
+    } catch (error) {
+      console.error('Error connecting:', error);
+      Alert.alert('Error', 'Failed to send follow request. Please try again.');
+    } finally {
+      // Remove the user from connecting state
+      setConnectingUsers(connectingUsers.filter(id => id !== userId));
+    }
+  };
+
   const renderPost = ({ item }: { item: Post }) => (
     <View style={styles.postContainer}>
       <View style={styles.postHeader}>
@@ -298,6 +431,10 @@ export default function Home() {
             </Text>
           </View>
         </TouchableOpacity>
+        
+        <TouchableOpacity>
+          <Ionicons name="ellipsis-horizontal" size={20} color="#A0A3BD" />
+        </TouchableOpacity>
       </View>
       
       <Text style={styles.postContent}>{item.content}</Text>
@@ -309,17 +446,19 @@ export default function Home() {
         >
           <Ionicons 
             name={item.is_liked ? "heart" : "heart-outline"} 
-            size={24} 
-            color={item.is_liked ? "#e74c3c" : "#333"} 
+            size={22} 
+            color={item.is_liked ? "#FF6B6B" : "#6E7191"} 
           />
-          <Text style={styles.actionText}>{item.likes_count}</Text>
+          <Text style={[styles.actionText, item.is_liked && { color: '#FF6B6B' }]}>
+            {item.likes_count}
+          </Text>
         </TouchableOpacity>
         
         <TouchableOpacity 
           style={styles.actionButton}
           onPress={() => handleComment(item.id)}
         >
-          <Ionicons name="chatbubble-outline" size={24} color="#333" />
+          <Ionicons name="chatbubble-outline" size={22} color="#6E7191" />
           <Text style={styles.actionText}>{item.comments_count}</Text>
         </TouchableOpacity>
         
@@ -327,8 +466,26 @@ export default function Home() {
           style={styles.actionButton}
           onPress={() => handleShare(item.id)}
         >
-          <Ionicons name="share-social-outline" size={24} color="#333" />
+          <Ionicons name="share-social-outline" size={22} color="#6E7191" />
+          <Text style={styles.actionText}>Share</Text>
         </TouchableOpacity>
+
+        {item.user_id !== session?.user.id && (
+          <TouchableOpacity 
+            style={styles.actionButton}
+            onPress={() => handleConnect(item.user_id)}
+            disabled={connectingUsers.includes(item.user_id)}
+          >
+            {connectingUsers.includes(item.user_id) ? (
+              <ActivityIndicator size="small" color="#5561F5" />
+            ) : (
+              <>
+                <Ionicons name="person-add-outline" size={22} color="#6E7191" />
+                <Text style={styles.actionText}>Connect</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        )}
       </View>
     </View>
   );
@@ -500,6 +657,24 @@ export default function Home() {
     checkAgainAfterDelay();
   });
 
+  // Handle swipe gesture
+  const handleTouchStart = (e: GestureResponderEvent) => {
+    setTouchStart(e.nativeEvent.pageX);
+  };
+
+  const handleTouchEnd = (e: GestureResponderEvent) => {
+    setTouchEnd(e.nativeEvent.pageX);
+    handleSwipe();
+  };
+
+  const handleSwipe = () => {
+    // Swipe right (home to bookmarks)
+    if (touchStart - touchEnd < -80) { // Require at least 80px swipe
+      console.log('Swiping right to bookmarks');
+      router.push('/bookmarks');
+    }
+  };
+
   if (loading && !refreshing) {
     return (
       <View style={styles.loadingContainer}>
@@ -510,19 +685,24 @@ export default function Home() {
   }
 
   return (
-    <View style={styles.container}>
+    <View 
+      style={styles.container}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+    >
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.searchContainer}>
           <TextInput
             style={styles.searchInput}
             placeholder="Search users..."
+            placeholderTextColor="#A0A3BD"
             value={searchQuery}
             onChangeText={setSearchQuery}
             onSubmitEditing={handleSearch}
           />
           <TouchableOpacity onPress={handleSearch}>
-            <Ionicons name="search" size={24} color="#666" />
+            <Ionicons name="search" size={22} color="#5561F5" />
           </TouchableOpacity>
         </View>
         
@@ -531,7 +711,7 @@ export default function Home() {
             style={styles.headerButton}
             onPress={() => router.push('/follow-requests')}
           >
-            <Ionicons name="people" size={24} color="#333" />
+            <Ionicons name="people" size={24} color="#6E7191" />
             {pendingFollowRequests > 0 && (
               <View style={styles.badge}>
                 <Text style={styles.badgeText}>{pendingFollowRequests}</Text>
@@ -543,7 +723,7 @@ export default function Home() {
             style={styles.headerButton}
             onPress={() => router.push('/notifications')}
           >
-            <Ionicons name="notifications" size={24} color="#333" />
+            <Ionicons name="notifications" size={24} color="#6E7191" />
             {notifications > 0 && (
               <View style={styles.badge}>
                 <Text style={styles.badgeText}>{notifications}</Text>
@@ -555,21 +735,21 @@ export default function Home() {
             style={styles.headerButton}
             onPress={() => router.push('/messages')}
           >
-            <Ionicons name="chatbubbles" size={24} color="#333" />
+            <Ionicons name="chatbubbles" size={24} color="#6E7191" />
           </TouchableOpacity>
           
           <TouchableOpacity 
             style={styles.headerButton}
             onPress={() => router.push('/profile')}
           >
-            <Ionicons name="person" size={24} color="#333" />
+            <Ionicons name="person" size={24} color="#6E7191" />
           </TouchableOpacity>
           
           <TouchableOpacity 
             style={styles.headerButton}
             onPress={handleLogout}
           >
-            <Ionicons name="log-out" size={24} color="#333" />
+            <Ionicons name="log-out" size={24} color="#6E7191" />
           </TouchableOpacity>
         </View>
       </View>
@@ -587,11 +767,13 @@ export default function Home() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={handleRefresh}
-            colors={['#306998']}
+            colors={['#5561F5']}
+            tintColor="#5561F5"
           />
         }
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
+            <Ionicons name="document-text-outline" size={48} color="#A0A3BD" style={{ marginBottom: 12 }} />
             <Text style={styles.emptyText}>No posts found</Text>
           </View>
         }
@@ -602,7 +784,7 @@ export default function Home() {
         style={styles.createPostButton}
         onPress={() => router.push('/create-post')}
       >
-        <Ionicons name="add" size={30} color="#fff" />
+        <Ionicons name="add" size={30} color="#FFF" />
       </TouchableOpacity>
     </View>
   );
@@ -611,7 +793,7 @@ export default function Home() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#F8F9FD', // Light background with subtle blue tint
   },
   loadingContainer: {
     flex: 1,
@@ -621,13 +803,18 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 10,
     fontSize: 16,
-    color: '#666',
+    color: '#6E7191',
+    fontWeight: '500',
   },
   header: {
-    backgroundColor: '#fff',
+    backgroundColor: '#FFFFFF',
     padding: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    borderBottomWidth: 0,
+    shadowColor: '#8A64F7',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 5,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -636,129 +823,160 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f0f0f0',
-    borderRadius: 20,
-    paddingHorizontal: 15,
-    marginRight: 10,
+    backgroundColor: '#F3F4FC',
+    borderRadius: 30,
+    paddingHorizontal: 18,
+    marginRight: 12,
+    height: 46,
+    borderWidth: 1,
+    borderColor: '#EEEFF5',
   },
   searchInput: {
     flex: 1,
-    paddingVertical: 8,
+    paddingVertical: 10,
     fontSize: 16,
+    color: '#1A1D3F',
   },
   headerActions: {
     flexDirection: 'row',
   },
   headerButton: {
-    marginLeft: 15,
+    marginLeft: 18,
     position: 'relative',
   },
   badge: {
     position: 'absolute',
-    top: -5,
-    right: -5,
-    backgroundColor: '#e74c3c',
-    borderRadius: 10,
-    minWidth: 20,
-    height: 20,
+    top: -6,
+    right: -6,
+    backgroundColor: '#FF6B6B',
+    borderRadius: 12,
+    minWidth: 22,
+    height: 22,
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
   },
   badgeText: {
-    color: '#fff',
+    color: '#FFF',
     fontSize: 12,
     fontWeight: 'bold',
   },
   interestsContainer: {
-    backgroundColor: '#fff',
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    backgroundColor: '#FFFFFF',
+    paddingVertical: 14,
+    paddingHorizontal: 8,
+    borderBottomWidth: 0,
+    shadowColor: '#8A64F7',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 3,
+    marginBottom: 8,
   },
   interestChip: {
-    paddingHorizontal: 15,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: '#f0f0f0',
-    marginHorizontal: 5,
+    paddingHorizontal: 16,
+    paddingVertical: 9,
+    borderRadius: 30,
+    backgroundColor: '#F3F4FC',
+    marginHorizontal: 6,
+    borderWidth: 1,
+    borderColor: '#EEEFF5',
   },
   selectedInterestChip: {
-    backgroundColor: '#306998',
+    backgroundColor: '#5561F5',
+    shadowColor: '#5561F5',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
   },
   interestText: {
-    color: '#333',
+    color: '#6E7191',
     fontSize: 14,
+    fontWeight: '500',
   },
   selectedInterestText: {
-    color: '#fff',
+    color: '#FFF',
   },
   postsList: {
-    padding: 10,
+    padding: 12,
   },
   postContainer: {
-    backgroundColor: '#fff',
-    borderRadius: 10,
-    padding: 15,
-    marginBottom: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 18,
+    marginBottom: 12,
+    shadowColor: '#8A64F7',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    elevation: 3,
+    transform: [{ scale: 1.0 }],
   },
   postHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 14,
   },
   userInfo: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   avatarContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#306998',
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: '#5561F5',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 10,
+    marginRight: 12,
+    shadowColor: '#8A64F7',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 4,
   },
   avatarText: {
-    color: '#fff',
+    color: '#FFF',
     fontSize: 18,
     fontWeight: 'bold',
   },
   username: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#1A1D3F',
   },
   timestamp: {
     fontSize: 12,
-    color: '#666',
+    color: '#6E7191',
+    marginTop: 2,
   },
   postContent: {
     fontSize: 16,
-    color: '#333',
-    marginBottom: 15,
-    lineHeight: 22,
+    color: '#1A1D3F',
+    marginBottom: 18,
+    lineHeight: 24,
   },
   postActions: {
     flexDirection: 'row',
     borderTopWidth: 1,
-    borderTopColor: '#eee',
-    paddingTop: 10,
+    borderTopColor: '#EEEFF5',
+    paddingTop: 14,
   },
   actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginRight: 20,
+    marginRight: 22,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    borderRadius: 20,
   },
   actionText: {
-    marginLeft: 5,
-    color: '#666',
+    marginLeft: 6,
+    color: '#6E7191',
+    fontWeight: '500',
   },
   emptyContainer: {
     padding: 20,
@@ -766,23 +984,26 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 16,
-    color: '#666',
+    color: '#6E7191',
     marginBottom: 10,
+    fontWeight: '500',
   },
   createPostButton: {
     position: 'absolute',
-    bottom: 20,
-    right: 20,
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: '#306998',
+    bottom: 24,
+    right: 24,
+    width: 62,
+    height: 62,
+    borderRadius: 31,
+    backgroundColor: '#5561F5',
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowColor: '#5561F5',
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
-    shadowRadius: 3,
-    elevation: 5,
+    shadowRadius: 8,
+    elevation: 8,
+    // Create a slight pulse effect
+    transform: [{ scale: 1.0 }], // We'll animate this with useEffect in a real implementation
   },
 }); 

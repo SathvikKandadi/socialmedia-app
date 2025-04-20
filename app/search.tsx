@@ -182,40 +182,38 @@ export default function Search() {
 
   const renderResult = ({ item }: { item: SearchResult }) => (
     <TouchableOpacity 
-      style={styles.resultContainer}
+      style={styles.userItem}
       onPress={() => router.push(`/profile?id=${item.id}`)}
     >
+      <View style={styles.avatarContainer}>
+        <Text style={styles.avatarText}>
+          {item.username.charAt(0).toUpperCase()}
+        </Text>
+      </View>
       <View style={styles.userInfo}>
-        <View style={styles.avatarContainer}>
-          <Text style={styles.avatarText}>
-            {item.username.charAt(0).toUpperCase()}
+        <Text style={styles.username}>{item.username}</Text>
+        <Text style={styles.fullName}>{item.full_name}</Text>
+        {item.bio && (
+          <Text style={styles.postContent} numberOfLines={2}>
+            {item.bio}
           </Text>
-        </View>
-        <View style={styles.userDetails}>
-          <Text style={styles.username}>{item.username}</Text>
-          <Text style={styles.fullName}>{item.full_name}</Text>
-          {item.bio && (
-            <Text style={styles.bio} numberOfLines={2}>
-              {item.bio}
+        )}
+        <View style={styles.interestsContainer}>
+          {item.interests.slice(0, 3).map((interest, index) => (
+            <View key={index} style={styles.interestChip}>
+              <Text style={styles.interestText}>{interest}</Text>
+            </View>
+          ))}
+          {item.interests.length > 3 && (
+            <Text style={styles.moreInterests}>
+              +{item.interests.length - 3} more
             </Text>
           )}
-          <View style={styles.interestsContainer}>
-            {item.interests.slice(0, 3).map((interest, index) => (
-              <View key={index} style={styles.interestChip}>
-                <Text style={styles.interestText}>{interest}</Text>
-              </View>
-            ))}
-            {item.interests.length > 3 && (
-              <Text style={styles.moreInterests}>
-                +{item.interests.length - 3} more
-              </Text>
-            )}
-          </View>
         </View>
       </View>
       
-      <View style={styles.statsContainer}>
-        <Text style={styles.statText}>
+      <View style={styles.postFooter}>
+        <Text style={styles.postAction}>
           {item.followers_count} followers
         </Text>
         <TouchableOpacity 
@@ -246,7 +244,7 @@ export default function Search() {
           <Ionicons name="arrow-back" size={24} color="#333" />
         </TouchableOpacity>
         <View style={styles.searchContainer}>
-          <Ionicons name="search" size={20} color="#666" />
+          <Ionicons name="search" size={20} color="#666" style={styles.searchIcon} />
           <TextInput
             style={styles.searchInput}
             value={searchQuery}
@@ -292,36 +290,158 @@ export default function Search() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#F8F9FD',
   },
   header: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 15,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    padding: 16,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 0,
+    shadowColor: '#8A64F7',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 5,
   },
-  backButton: {
-    padding: 5,
-    marginRight: 10,
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1A1D3F',
   },
   searchContainer: {
-    flex: 1,
     flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f0f0f0',
+    backgroundColor: '#FFFFFF',
     borderRadius: 20,
-    paddingHorizontal: 15,
+    marginHorizontal: 16,
+    marginVertical: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    alignItems: 'center',
+    shadowColor: '#8A64F7',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  searchIcon: {
+    marginRight: 10,
+    color: '#A0A3BD',
   },
   searchInput: {
     flex: 1,
-    paddingVertical: 8,
     fontSize: 16,
-    marginLeft: 10,
+    color: '#1A1D3F',
+    height: 40,
   },
-  clearButton: {
-    padding: 5,
+  tabBar: {
+    flexDirection: 'row',
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#EEEFF5',
+    marginBottom: 8,
+  },
+  tab: {
+    flex: 1,
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
+  activeTab: {
+    borderBottomWidth: 2,
+    borderBottomColor: '#5561F5',
+  },
+  tabText: {
+    fontSize: 15,
+    color: '#6E7191',
+  },
+  activeTabText: {
+    fontWeight: 'bold',
+    color: '#5561F5',
+  },
+  userItem: {
+    flexDirection: 'row',
+    backgroundColor: '#FFFFFF',
+    padding: 16,
+    borderRadius: 20,
+    marginHorizontal: 16,
+    marginTop: 12,
+    alignItems: 'center',
+    shadowColor: '#8A64F7',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  avatarContainer: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: '#5561F5',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  avatarText: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  userInfo: {
+    flex: 1,
+  },
+  username: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#1A1D3F',
+    marginBottom: 4,
+  },
+  fullName: {
+    fontSize: 14,
+    color: '#6E7191',
+  },
+  postItem: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 16,
+    marginHorizontal: 16,
+    marginTop: 12,
+    shadowColor: '#8A64F7',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  postAuthor: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  postContent: {
+    fontSize: 16,
+    color: '#1A1D3F',
+    marginBottom: 16,
+    lineHeight: 24,
+  },
+  postFooter: {
+    flexDirection: 'row',
+    borderTopWidth: 1,
+    borderTopColor: '#EEEFF5',
+    paddingTop: 12,
+  },
+  postAction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 20,
+  },
+  postActionText: {
+    marginLeft: 6,
+    color: '#6E7191',
+  },
+  timestamp: {
+    fontSize: 12,
+    color: '#A0A3BD',
+    marginTop: 8,
   },
   loadingContainer: {
     flex: 1,
@@ -331,57 +451,46 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 10,
     fontSize: 16,
-    color: '#666',
+    color: '#6E7191',
+    fontWeight: '500',
   },
-  resultsList: {
-    padding: 10,
-  },
-  resultContainer: {
-    backgroundColor: '#fff',
-    borderRadius: 10,
-    padding: 15,
-    marginBottom: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  userInfo: {
-    flexDirection: 'row',
-    marginBottom: 10,
-  },
-  avatarContainer: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: '#306998',
+  emptyContainer: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 15,
+    padding: 20,
+    marginTop: 40,
   },
-  avatarText: {
-    color: '#fff',
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
-  userDetails: {
-    flex: 1,
-  },
-  username: {
+  emptyText: {
     fontSize: 16,
+    color: '#6E7191',
+    textAlign: 'center',
+    marginTop: 10,
+    fontWeight: '500',
+  },
+  followButton: {
+    backgroundColor: '#5561F5',
+    borderRadius: 30,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    shadowColor: '#5561F5',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  followingButton: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: '#5561F5',
+  },
+  followButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
     fontWeight: 'bold',
-    color: '#333',
   },
-  fullName: {
-    fontSize: 14,
-    color: '#666',
-    marginTop: 2,
-  },
-  bio: {
-    fontSize: 14,
-    color: '#666',
-    marginTop: 5,
+  followingButtonText: {
+    color: '#5561F5',
   },
   interestsContainer: {
     flexDirection: 'row',
@@ -405,41 +514,14 @@ const styles = StyleSheet.create({
     color: '#666',
     marginLeft: 5,
   },
-  statsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    borderTopWidth: 1,
-    borderTopColor: '#eee',
-    paddingTop: 10,
+  backButton: {
+    padding: 5,
+    marginRight: 10,
   },
-  statText: {
-    fontSize: 14,
-    color: '#666',
+  clearButton: {
+    padding: 5,
   },
-  followButton: {
-    backgroundColor: '#306998',
-    paddingHorizontal: 15,
-    paddingVertical: 6,
-    borderRadius: 15,
-  },
-  followingButton: {
-    backgroundColor: '#f0f0f0',
-  },
-  followButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
-  followingButtonText: {
-    color: '#666',
-  },
-  emptyContainer: {
-    padding: 20,
-    alignItems: 'center',
-  },
-  emptyText: {
-    fontSize: 16,
-    color: '#666',
+  resultsList: {
+    padding: 10,
   },
 }); 

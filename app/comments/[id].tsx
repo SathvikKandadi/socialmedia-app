@@ -1,19 +1,20 @@
-import { useState, useEffect } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  FlatList, 
-  TextInput, 
-  TouchableOpacity, 
+import { useState, useEffect, useRef } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  TextInput,
+  TouchableOpacity,
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
-  Platform
+  Platform,
+  Alert,
+  RefreshControl
 } from 'react-native';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
-import { router, useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 type Comment = {
@@ -21,147 +22,153 @@ type Comment = {
   content: string;
   created_at: string;
   user: {
+    id: string;
     username: string;
     full_name: string;
   };
-  likes_count: number;
-  is_liked: boolean;
+};
+
+type Post = {
+  id: string;
+  content: string;
+  created_at: string;
+  user: {
+    id: string;
+    username: string;
+    full_name: string;
+  };
 };
 
 export default function Comments() {
   const { id } = useLocalSearchParams();
   const { session } = useAuth();
+  const [post, setPost] = useState<Post | null>(null);
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState('');
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const inputRef = useRef<TextInput>(null);
 
   useEffect(() => {
-    fetchComments();
-  }, []);
+    fetchPostAndComments();
+  }, [id]);
 
-  const fetchComments = async () => {
+  const fetchPostAndComments = async () => {
     try {
       setLoading(true);
-
-      // First get the comments
+      
+      // Fetch the post first
+      const { data: postData, error: postError } = await supabase
+        .from('posts')
+        .select('id, content, created_at, user_id')
+        .eq('id', id)
+        .single();
+      
+      if (postError) throw postError;
+      
+      // Fetch user information
+      const { data: userData, error: userError } = await supabase
+        .from('profiles')
+        .select('id, username, full_name')
+        .eq('id', postData.user_id)
+        .single();
+      
+      if (userError) throw userError;
+      
+      setPost({
+        id: postData.id,
+        content: postData.content,
+        created_at: postData.created_at,
+        user: userData
+      });
+      
+      // Fetch comments
       const { data: commentsData, error: commentsError } = await supabase
         .from('comments')
-        .select(`
-          id,
-          content,
-          created_at,
-          user_id,
-          likes_count:likes(count)
-        `)
+        .select('id, content, created_at, user_id')
         .eq('post_id', id)
         .order('created_at', { ascending: true });
-
-      if (commentsError) throw commentsError;
-
-      // Process each comment
-      const processedComments = [];
       
-      for (const comment of commentsData || []) {
-        // Get user data separately
-        const { data: userData, error: userError } = await supabase
-          .from('profiles')
-          .select('username, full_name')
-          .eq('id', comment.user_id)
-          .single();
-
-        if (userError) {
-          console.error('Error fetching user info:', userError);
-        }
-        
-        // Check if user liked this comment
-        const { data: likeData } = await supabase
-          .from('likes')
-          .select('*')
-          .eq('comment_id', comment.id)
-          .eq('user_id', session?.user.id)
-          .maybeSingle();
-        
-        processedComments.push({
-          ...comment,
-          likes_count: comment.likes_count[0]?.count || 0,
-          is_liked: !!likeData,
-          user: userData || { username: 'Unknown', full_name: 'Unknown User' }
-        });
-      }
-
+      if (commentsError) throw commentsError;
+      
+      // Fetch user info for each comment
+      const processedComments = await Promise.all(
+        commentsData.map(async (comment) => {
+          const { data: commentUser } = await supabase
+            .from('profiles')
+            .select('id, username, full_name')
+            .eq('id', comment.user_id)
+            .single();
+          
+          return {
+            id: comment.id,
+            content: comment.content,
+            created_at: comment.created_at,
+            user: commentUser || {
+              id: comment.user_id,
+              username: 'Unknown',
+              full_name: 'Unknown User'
+            }
+          };
+        })
+      );
+      
       setComments(processedComments);
     } catch (error) {
-      console.error('Error fetching comments:', error);
-      Alert.alert('Error', 'Failed to load comments. Please try again.');
+      console.error('Error fetching post and comments:', error);
+      Alert.alert('Error', 'Failed to load post and comments. Please try again.');
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
-  const handleLike = async (commentId: string) => {
-    try {
-      const comment = comments.find(c => c.id === commentId);
-      if (!comment) return;
-
-      const isLiked = comment.is_liked;
-      
-      if (isLiked) {
-        // Unlike
-        const { error } = await supabase
-          .from('likes')
-          .delete()
-          .eq('comment_id', commentId)
-          .eq('user_id', session?.user.id);
-          
-        if (error) throw error;
-        
-        setComments(comments.map(c => 
-          c.id === commentId 
-            ? { ...c, is_liked: false, likes_count: c.likes_count - 1 } 
-            : c
-        ));
-      } else {
-        // Like
-        const { error } = await supabase
-          .from('likes')
-          .insert({ comment_id: commentId, user_id: session?.user.id, is_like: true });
-          
-        if (error) throw error;
-        
-        setComments(comments.map(c => 
-          c.id === commentId 
-            ? { ...c, is_liked: true, likes_count: c.likes_count + 1 } 
-            : c
-        ));
-      }
-    } catch (error) {
-      console.error('Error toggling like:', error);
-      Alert.alert('Error', 'Failed to update like. Please try again.');
-    }
+  const handleRefresh = () => {
+    setRefreshing(true);
+    fetchPostAndComments();
   };
 
-  const handleSubmit = async () => {
-    if (!newComment.trim()) {
-      Alert.alert('Error', 'Please enter a comment');
-      return;
-    }
-
+  const handleSubmitComment = async () => {
+    if (!newComment.trim()) return;
+    
     try {
       setSubmitting(true);
-
+      
+      // Insert comment
       const { error } = await supabase
         .from('comments')
         .insert({
           post_id: id,
           user_id: session?.user.id,
-          content: newComment.trim(),
+          content: newComment.trim()
         });
-
+      
       if (error) throw error;
-
+      
+      // Add the new comment to the list
+      const { data: userData } = await supabase
+        .from('profiles')
+        .select('id, username, full_name')
+        .eq('id', session?.user.id)
+        .single();
+      
+      const newCommentObj: Comment = {
+        id: Date.now().toString(), // Temporary ID until refresh
+        content: newComment.trim(),
+        created_at: new Date().toISOString(),
+        user: userData || {
+          id: session?.user.id || 'unknown',
+          username: 'You',
+          full_name: 'Your Name'
+        }
+      };
+      
+      setComments([...comments, newCommentObj]);
       setNewComment('');
-      fetchComments();
+      
+      // Refresh to get the real comment ID
+      setTimeout(fetchPostAndComments, 500);
     } catch (error) {
       console.error('Error submitting comment:', error);
       Alert.alert('Error', 'Failed to submit comment. Please try again.');
@@ -170,98 +177,136 @@ export default function Comments() {
     }
   };
 
+  const renderPostHeader = () => {
+    if (!post) return null;
+    
+    return (
+      <View style={styles.postContainer}>
+        <View style={styles.postHeader}>
+          <View style={styles.userInfo}>
+            <View style={styles.avatarContainer}>
+              <Text style={styles.avatarText}>
+                {post.user.username.charAt(0).toUpperCase()}
+              </Text>
+            </View>
+            <View>
+              <Text style={styles.username}>{post.user.username}</Text>
+              <Text style={styles.timestamp}>
+                {new Date(post.created_at).toLocaleDateString()}
+              </Text>
+            </View>
+          </View>
+        </View>
+        
+        <Text style={styles.postContent}>{post.content}</Text>
+        
+        <View style={styles.postFooter}>
+          <Text style={styles.commentsCount}>
+            {comments.length} {comments.length === 1 ? 'Comment' : 'Comments'}
+          </Text>
+        </View>
+      </View>
+    );
+  };
+
   const renderComment = ({ item }: { item: Comment }) => (
     <View style={styles.commentContainer}>
       <View style={styles.commentHeader}>
-        <View style={styles.userInfo}>
-          <View style={styles.avatarContainer}>
-            <Text style={styles.avatarText}>
-              {item.user.username.charAt(0).toUpperCase()}
-            </Text>
-          </View>
-          <View>
+        <View style={styles.avatarContainer}>
+          <Text style={styles.avatarText}>
+            {item.user.username.charAt(0).toUpperCase()}
+          </Text>
+        </View>
+        <View style={styles.commentBody}>
+          <View style={styles.commentMeta}>
             <Text style={styles.username}>{item.user.username}</Text>
             <Text style={styles.timestamp}>
               {new Date(item.created_at).toLocaleDateString()}
             </Text>
           </View>
+          <Text style={styles.commentContent}>{item.content}</Text>
         </View>
-      </View>
-      
-      <Text style={styles.commentContent}>{item.content}</Text>
-      
-      <View style={styles.commentActions}>
-        <TouchableOpacity 
-          style={styles.actionButton}
-          onPress={() => handleLike(item.id)}
-        >
-          <Ionicons 
-            name={item.is_liked ? "heart" : "heart-outline"} 
-            size={20} 
-            color={item.is_liked ? "#e74c3c" : "#333"} 
-          />
-          <Text style={styles.actionText}>{item.likes_count}</Text>
-        </TouchableOpacity>
       </View>
     </View>
   );
 
-  if (loading) {
+  if (loading && !refreshing) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#306998" />
+        <ActivityIndicator size="large" color="#5561F5" />
         <Text style={styles.loadingText}>Loading comments...</Text>
       </View>
     );
   }
 
   return (
-    <KeyboardAvoidingView 
+    <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 88 : 0}
     >
       <View style={styles.header}>
         <TouchableOpacity 
           style={styles.backButton}
           onPress={() => router.back()}
         >
-          <Ionicons name="arrow-back" size={24} color="#333" />
+          <Ionicons name="arrow-back" size={24} color="#5561F5" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Comments</Text>
-        <View style={{ width: 24 }} />
+        <View style={{ width: 40 }} />
       </View>
-
+      
       <FlatList
         data={comments}
         renderItem={renderComment}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.commentsList}
+        ListHeaderComponent={renderPostHeader}
+        style={styles.list}
+        contentContainerStyle={styles.listContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            colors={['#5561F5']}
+            tintColor="#5561F5"
+          />
+        }
         ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>No comments yet</Text>
-          </View>
+          !loading ? (
+            <View style={styles.emptyContainer}>
+              <Ionicons name="chatbubble-outline" size={48} color="#A0A3BD" style={{ marginBottom: 12 }} />
+              <Text style={styles.emptyText}>No comments yet</Text>
+              <Text style={[styles.emptyText, { fontSize: 14, marginTop: 8 }]}>
+                Be the first to comment
+              </Text>
+            </View>
+          ) : null
         }
       />
-
+      
       <View style={styles.inputContainer}>
         <TextInput
+          ref={inputRef}
           style={styles.input}
+          placeholder="Add a comment..."
+          placeholderTextColor="#A0A3BD"
           value={newComment}
           onChangeText={setNewComment}
-          placeholder="Write a comment..."
           multiline
           maxLength={500}
         />
-        <TouchableOpacity 
-          style={[styles.submitButton, submitting && styles.disabledButton]}
-          onPress={handleSubmit}
-          disabled={submitting}
+        <TouchableOpacity
+          style={[
+            styles.sendButton,
+            (!newComment.trim() || submitting) && styles.sendButtonDisabled
+          ]}
+          onPress={handleSubmitComment}
+          disabled={!newComment.trim() || submitting}
         >
           {submitting ? (
-            <ActivityIndicator color="#fff" size="small" />
+            <ActivityIndicator size="small" color="#FFFFFF" />
           ) : (
-            <Ionicons name="send" size={24} color="#fff" />
+            <Ionicons name="send" size={20} color="#FFFFFF" />
           )}
         </TouchableOpacity>
       </View>
@@ -272,7 +317,7 @@ export default function Comments() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#F8F9FD',
   },
   loadingContainer: {
     flex: 1,
@@ -282,128 +327,178 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 10,
     fontSize: 16,
-    color: '#666',
+    color: '#6E7191',
+    fontWeight: '500',
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 15,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    padding: 16,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 0,
+    shadowColor: '#8A64F7',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 5,
   },
   backButton: {
-    padding: 5,
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: '#F3F4FC',
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#1A1D3F',
   },
-  commentsList: {
-    padding: 10,
+  list: {
+    flex: 1,
   },
-  commentContainer: {
-    backgroundColor: '#fff',
-    borderRadius: 10,
-    padding: 15,
-    marginBottom: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+  listContent: {
+    padding: 16,
   },
-  commentHeader: {
+  postContainer: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 16,
+    marginBottom: 16,
+    shadowColor: '#8A64F7',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  postHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 12,
   },
   userInfo: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   avatarContainer: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#306998',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#5561F5',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 10,
+    marginRight: 12,
+    shadowColor: '#8A64F7',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 2,
   },
   avatarText: {
-    color: '#fff',
-    fontSize: 14,
+    color: '#FFFFFF',
+    fontSize: 16,
     fontWeight: 'bold',
   },
   username: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#1A1D3F',
   },
   timestamp: {
     fontSize: 12,
-    color: '#666',
+    color: '#A0A3BD',
+  },
+  postContent: {
+    fontSize: 16,
+    color: '#1A1D3F',
+    marginBottom: 16,
+    lineHeight: 24,
+  },
+  postFooter: {
+    borderTopWidth: 1,
+    borderTopColor: '#EEEFF5',
+    paddingTop: 12,
+  },
+  commentsCount: {
+    fontSize: 14,
+    color: '#6E7191',
+    fontWeight: '500',
+  },
+  commentContainer: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 12,
+    marginBottom: 12,
+    shadowColor: '#8A64F7',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  commentHeader: {
+    flexDirection: 'row',
+  },
+  commentBody: {
+    flex: 1,
+  },
+  commentMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
   },
   commentContent: {
-    fontSize: 14,
-    color: '#333',
-    marginBottom: 10,
-    lineHeight: 20,
-  },
-  commentActions: {
-    flexDirection: 'row',
-    borderTopWidth: 1,
-    borderTopColor: '#eee',
-    paddingTop: 10,
-  },
-  actionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  actionText: {
-    marginLeft: 5,
-    color: '#666',
-    fontSize: 12,
-  },
-  emptyContainer: {
-    padding: 20,
-    alignItems: 'center',
-  },
-  emptyText: {
-    fontSize: 16,
-    color: '#666',
+    fontSize: 15,
+    color: '#1A1D3F',
+    lineHeight: 22,
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 10,
-    backgroundColor: '#fff',
+    backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
-    borderTopColor: '#eee',
+    borderTopColor: '#EEEFF5',
+    padding: 12,
   },
   input: {
     flex: 1,
-    backgroundColor: '#f0f0f0',
+    backgroundColor: '#F3F4FC',
     borderRadius: 20,
-    paddingHorizontal: 15,
+    paddingHorizontal: 16,
     paddingVertical: 8,
-    marginRight: 10,
-    fontSize: 14,
+    paddingRight: 40,
+    fontSize: 16,
+    color: '#1A1D3F',
     maxHeight: 100,
   },
-  submitButton: {
-    backgroundColor: '#306998',
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+  sendButton: {
+    position: 'absolute',
+    right: 20,
+    backgroundColor: '#5561F5',
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
+    shadowColor: '#5561F5',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 2,
   },
-  disabledButton: {
-    opacity: 0.7,
+  sendButtonDisabled: {
+    backgroundColor: '#A0A3BD',
+    shadowOpacity: 0,
+  },
+  emptyContainer: {
+    padding: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 200,
+  },
+  emptyText: {
+    fontSize: 16,
+    color: '#6E7191',
+    textAlign: 'center',
+    fontWeight: '500',
   },
 }); 
