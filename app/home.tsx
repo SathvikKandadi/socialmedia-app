@@ -786,6 +786,11 @@ export default function Home() {
       >
         <Ionicons name="add" size={30} color="#FFF" />
       </TouchableOpacity>
+
+      {/* Non-functional Connect Icon */}
+      <View style={styles.connectIcon}>
+        <Ionicons name="people" size={24} color="#FFF" />
+      </View>
     </View>
   );
 }
@@ -1005,5 +1010,21 @@ const styles = StyleSheet.create({
     elevation: 8,
     // Create a slight pulse effect
     transform: [{ scale: 1.0 }], // We'll animate this with useEffect in a real implementation
+  },
+  connectIcon: {
+    position: 'absolute',
+    bottom: 100, // Position above the create post button
+    right: 24,
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    backgroundColor: '#4CAF50', // Green color for the connect icon
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#4CAF50',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
   },
 }); 

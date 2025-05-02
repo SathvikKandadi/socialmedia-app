@@ -1,8 +1,57 @@
-import { Text, View, StyleSheet, Image, TouchableOpacity, Dimensions } from 'react-native';
-import { Link } from 'expo-router';
+import { Text, View, StyleSheet, Image, TouchableOpacity, Dimensions, ActivityIndicator } from 'react-native';
+import { Link, useRootNavigationState, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useEffect, useState } from 'react';
+import * as SplashScreen from 'expo-splash-screen';
+import { useAuth } from '../contexts/AuthContext';
+
+// Keep the splash screen visible while we fetch resources
+SplashScreen.preventAutoHideAsync();
 
 export default function Index() {
+  const router = useRouter();
+  const { session, loading } = useAuth();
+  const [appIsReady, setAppIsReady] = useState(false);
+  const navigationState = useRootNavigationState();
+
+  useEffect(() => {
+    // Prepare to hide splash screen once everything is ready
+    async function prepare() {
+      try {
+        // Artificial delay for smoother transition
+        await new Promise(resolve => setTimeout(resolve, 800));
+      } catch (e) {
+        console.warn('Error preparing app:', e);
+      } finally {
+        setAppIsReady(true);
+      }
+    }
+
+    prepare();
+  }, []);
+
+  useEffect(() => {
+    // Only hide splash when both navigation is ready and our app-level ready state is true
+    if (appIsReady && navigationState?.key && !loading) {
+      // Hide splash screen
+      SplashScreen.hideAsync();
+      
+      // Auto-redirect to home if already logged in
+      if (session) {
+        router.replace('/home');
+      }
+    }
+  }, [appIsReady, navigationState?.key, loading, session]);
+
+  // Show loading indicator if still initializing
+  if (!appIsReady || loading || !navigationState?.key) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#5561F5" />
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       <View style={styles.contentContainer}>
@@ -51,6 +100,12 @@ export default function Index() {
 }
 
 const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F8F9FD',
+  },
   container: {
     flex: 1,
     backgroundColor: '#F8F9FD',

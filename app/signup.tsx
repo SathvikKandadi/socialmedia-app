@@ -10,7 +10,8 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  FlatList
+  FlatList,
+  Modal
 } from 'react-native';
 import { useAuth } from '../contexts/AuthContext';
 import { router } from 'expo-router';
@@ -36,6 +37,7 @@ export default function Signup() {
   const [step, setStep] = useState(1); // Step 1: Account info, Step 2: Interests
   const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [showEmailConfirmation, setShowEmailConfirmation] = useState(false);
 
   const handleNext = () => {
     if (!email || !password || !username || !fullName) {
@@ -65,17 +67,29 @@ export default function Signup() {
 
     try {
       setLoading(true);
-      await signUp(email, password, {
+      const { emailConfirmationRequired } = await signUp(email, password, {
         username: username,
         full_name: fullName,
         interests: selectedInterests
       });
-      router.replace('/home');
+      
+      if (emailConfirmationRequired) {
+        // Show email confirmation message
+        setShowEmailConfirmation(true);
+      } else {
+        // If no email confirmation required (rare case with some Supabase settings), proceed to home
+        router.replace('/home');
+      }
     } catch (error: any) {
       Alert.alert('Error', error.message || 'Failed to sign up. Please try again.');
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleConfirmedEmail = () => {
+    setShowEmailConfirmation(false);
+    router.replace('/login');
   };
 
   // Filter interests based on search query
@@ -268,6 +282,49 @@ export default function Signup() {
           </TouchableOpacity>
         </View>
       </ScrollView>
+
+      {/* Email Confirmation Modal */}
+      <Modal
+        visible={showEmailConfirmation}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowEmailConfirmation(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Ionicons name="mail" size={50} color="#5561F5" style={styles.modalIcon} />
+            
+            <Text style={styles.modalTitle}>Verify Your Email</Text>
+            
+            <Text style={styles.modalText}>
+              We've sent a confirmation link to:
+            </Text>
+            
+            <Text style={styles.emailText}>{email}</Text>
+            
+            <Text style={styles.modalText}>
+              Please check your inbox and click the verification link to complete your registration.
+            </Text>
+            
+            <TouchableOpacity 
+              style={styles.modalButton}
+              onPress={handleConfirmedEmail}
+            >
+              <Text style={styles.modalButtonText}>I've Confirmed My Email</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={styles.resendButton}
+              onPress={() => {
+                setShowEmailConfirmation(false);
+                handleSignup();
+              }}
+            >
+              <Text style={styles.resendButtonText}>Resend Confirmation Email</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
@@ -485,5 +542,71 @@ const styles = StyleSheet.create({
     marginTop: 20,
     marginBottom: 20,
     textAlign: 'center',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 24,
+    width: '100%',
+    maxWidth: 350,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.1,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  modalIcon: {
+    marginBottom: 16,
+  },
+  modalTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#1A1D3F',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  modalText: {
+    fontSize: 16,
+    color: '#6E7191',
+    textAlign: 'center',
+    marginBottom: 12,
+    lineHeight: 22,
+  },
+  emailText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#5561F5',
+    marginBottom: 12,
+  },
+  modalButton: {
+    backgroundColor: '#5561F5',
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    width: '100%',
+    alignItems: 'center',
+    marginTop: 8,
+    marginBottom: 12,
+  },
+  modalButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  resendButton: {
+    paddingVertical: 12,
+  },
+  resendButtonText: {
+    color: '#5561F5',
+    fontSize: 14,
+    fontWeight: '500',
   },
 }); 
